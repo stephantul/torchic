@@ -28,7 +28,7 @@ from sklearn.datasets import fetch_20newsgroups_vectorized
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import precision_recall_fscore_support
 
-from torchic.torchic import Torchic
+from torchic import Torchic
 
 # NOTE: change this to 'cuda' or 'mps' if you want acceleration.
 DEVICE = "cpu"
@@ -40,7 +40,9 @@ X = np.asarray(X.todense())
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, shuffle=True, random_state=44, test_size=.1)
 
-t = Torchic(X.shape[1], len(set(y)), learning_rate=1e-4).to(DEVICE)
+# Torchic stuff begins here.
+n_features, n_labels = X_train.shape[1], len(set(y))
+t = Torchic(n_features, n_labels, learning_rate=1e-4).to(DEVICE)
 t.fit(X_train, y_train, batch_size=128)
 pred = t.predict(X_test)
 
