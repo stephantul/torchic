@@ -11,7 +11,7 @@ from tqdm import tqdm
 
 from torchic.utilities import (
     calculate_accuracy,
-    create_dataloader,
+    create_dataloaders,
     evaluation,
     format_history,
     get_device,
@@ -119,7 +119,7 @@ class Torchic(nn.Module):
         if isinstance(y, np.ndarray):
             y = torch.from_numpy(y).long()
 
-        train_dataloader, val_dataloader = create_dataloader(X, y, batch_size)
+        train_dataloader, val_dataloader = create_dataloaders(X, y, batch_size)
 
         wrong_epochs = 0
 

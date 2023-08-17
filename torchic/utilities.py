@@ -16,7 +16,7 @@ def train_test_split(
     return X_train, X_val, y_train, y_val
 
 
-def create_dataloader(
+def create_dataloaders(
     X: torch.Tensor, y: torch.LongTensor, batch_size: int
 ) -> Tuple[DataLoader, DataLoader]:
     X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.1)
