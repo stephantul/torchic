@@ -9,6 +9,7 @@ from torchic.utilities import (
     evaluation,
     format_history,
     get_device,
+    get_dtype,
     train_test_split,
 )
 
@@ -86,3 +87,12 @@ class TestUtilities(unittest.TestCase):
         with evaluation(module):
             self.assertFalse(module.training)
         self.assertFalse(module.training)
+
+    def test_get_dtype(self) -> None:
+        module = nn.Linear(10, 10)
+        self.assertTrue(get_dtype(module), torch.float)
+
+        module = nn.Sequential(nn.Linear(10, 10).float(), nn.Linear(10, 10).double())
+
+        with self.assertRaises(ValueError):
+            get_dtype(module)

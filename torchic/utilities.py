@@ -57,3 +57,11 @@ def get_device(module: nn.Module) -> torch.device:
         raise ValueError("More than 1 device detected.")
 
     return next(iter(all_devices))
+
+
+def get_dtype(module: nn.Module) -> torch.dtype:
+    all_dtypes = set([x.dtype for x in module.parameters()])
+    if len(all_dtypes) > 1:
+        raise ValueError("More than 1 device detected.")
+
+    return next(iter(all_dtypes))

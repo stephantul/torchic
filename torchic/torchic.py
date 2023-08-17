@@ -15,6 +15,7 @@ from torchic.utilities import (
     evaluation,
     format_history,
     get_device,
+    get_dtype,
 )
 
 AnyArray = Union[np.ndarray, torch.Tensor]
@@ -49,6 +50,10 @@ class Torchic(nn.Module):
     @property
     def device(self) -> torch.device:
         return get_device(self)
+
+    @property
+    def dtype(self) -> torch.dtype:
+        return get_dtype(self)
 
     def forward(self, X: torch.Tensor) -> torch.Tensor:
         return self.model(X)
@@ -119,6 +124,8 @@ class Torchic(nn.Module):
         if isinstance(y, np.ndarray):
             y = torch.from_numpy(y).long()
 
+        X = X.type(self.dtype)
+
         train_dataloader, val_dataloader = create_dataloaders(X, y, batch_size)
 
         wrong_epochs = 0
@@ -144,7 +151,7 @@ class Torchic(nn.Module):
             self.model.load_state_dict(self.best_params)
         self.best_params = None
 
-        self.training(False)
+        self.train(False)
 
         return self
 
@@ -155,8 +162,10 @@ class Torchic(nn.Module):
     def predict_proba(self, X: torch.Tensor, batch_size: int = 1024) -> AnyArray:
         was_numpy = False
         if isinstance(X, np.ndarray):
-            X = torch.from_numpy(X).float()
+            X = torch.from_numpy(X)
             was_numpy = True
+
+        X = X.type(self.dtype)
 
         dataloader: DataLoader = DataLoader(
             TensorDataset(X), batch_size=batch_size, shuffle=False
