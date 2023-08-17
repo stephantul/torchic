@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import torch
 from torch import nn
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, TensorDataset
 from tqdm import tqdm
 
 from torchic.utilities import (
@@ -16,6 +16,8 @@ from torchic.utilities import (
     format_history,
     get_device,
 )
+
+AnyArray = Union[np.ndarray, torch.Tensor]
 
 
 class Torchic(nn.Module):
@@ -34,10 +36,10 @@ class Torchic(nn.Module):
         return torch.optim.AdamW(self.parameters(), lr=learning_rate)
 
     def create_model(self, n_features: int, n_classes: int) -> nn.Module:
-        model = nn.Linear(n_features, n_classes)
-        nn.init.kaiming_normal_(model.weight)
+        linear = nn.Linear(n_features, n_classes)
+        nn.init.kaiming_normal_(linear.weight)
         lnorm = nn.BatchNorm1d(n_features)
-        model = nn.Sequential(lnorm, model)
+        model = nn.Sequential(lnorm, linear)
 
         return model
 
@@ -66,7 +68,7 @@ class Torchic(nn.Module):
 
     @torch.no_grad()
     def _eval_batch(
-        self, X_batch: torch.Tensor, y_batch: torch.LongTensor
+        self, X_batch: torch.Tensor, y_batch: torch.Tensor
     ) -> Tuple[float, float]:
         X_batch = X_batch.to(self.device)
         y_batch = y_batch.to(self.device)
@@ -121,12 +123,15 @@ class Torchic(nn.Module):
 
         wrong_epochs = 0
 
-        for _ in range(max_epochs):
+        for epoch in range(max_epochs):
             self._epoch(train_dataloader, val_dataloader)
 
-            if val_loss := self.history["val_loss"]:
-                lowest_loss = min(val_loss[:-1])
-                current_loss = val_loss[-1]
+            val_loss = self.history["val_loss"]
+
+            if epoch > 0:
+                *rest, current_loss = val_loss
+                lowest_loss = min(rest)
+
                 if current_loss < lowest_loss:
                     wrong_epochs = 0
                     self.best_params = self.model.state_dict()
@@ -135,26 +140,36 @@ class Torchic(nn.Module):
                     if wrong_epochs > early_stopping:
                         break
 
-        self.model.load_state_dict(self.best_params)
+        if self.best_params is not None:
+            self.model.load_state_dict(self.best_params)
         self.best_params = None
+
+        self.training(False)
 
         return self
 
-    def predict(self, X: torch.Tensor, batch_size: int = 1024) -> torch.LongTensor:
+    def predict(self, X: torch.Tensor, batch_size: int = 1024) -> AnyArray:
         return self.predict_proba(X, batch_size).argmax(1)
 
-    def predict_proba(
-        self, X: torch.Tensor, batch_size: int = 1024
-    ) -> torch.LongTensor:
+    @torch.no_grad()
+    def predict_proba(self, X: torch.Tensor, batch_size: int = 1024) -> AnyArray:
+        was_numpy = False
         if isinstance(X, np.ndarray):
             X = torch.from_numpy(X).float()
+            was_numpy = True
 
-        dataloader = DataLoader(X, batch_size=batch_size, shuffle=False)
+        dataloader: DataLoader = DataLoader(
+            TensorDataset(X), batch_size=batch_size, shuffle=False
+        )
 
         predictions = []
         with evaluation(self):
-            for batch in dataloader:
-                batch = batch.to(self.device)
-                predictions.append(torch.softmax(self(batch), dim=1))
+            for (X_batch,) in dataloader:
+                batch = X_batch.to(self.device)
+                predictions.append(torch.softmax(self(batch), dim=1).cpu())
 
-        return torch.cat(predictions)
+        predictions_concatenated = torch.cat(predictions)
+
+        return (
+            predictions_concatenated.numpy() if was_numpy else predictions_concatenated
+        )

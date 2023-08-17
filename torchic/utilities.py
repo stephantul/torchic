@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader, TensorDataset
 
 def train_test_split(
     X: torch.Tensor, y: torch.LongTensor, test_size: float
-) -> Tuple[torch.Tensor, torch.Tensor, torch.LongTensor, torch.LongTensor]:
+) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     split = int(len(X) * (1 - test_size))
     X_train, X_val = X[:split], X[split:]
     y_train, y_val = y[:split], y[split:]
@@ -30,8 +30,8 @@ def create_dataloader(
 
 
 @torch.no_grad()
-def calculate_accuracy(X: torch.Tensor, y: torch.LongTensor) -> float:
-    return (X.argmax(1) == y).float().mean()
+def calculate_accuracy(X: torch.Tensor, y: torch.Tensor) -> float:
+    return (X.argmax(1) == y).float().mean().item()
 
 
 def format_history(history: Dict[str, List[float]]) -> str:
