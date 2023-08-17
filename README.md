@@ -1,3 +1,12 @@
+<p align="center">
+  <picture>
+    <source srcset="pictures/torchic_logo.png">
+    <img alt="Hugging Face Transformers Library" src="https://huggingface.co/datasets/huggingface/documentation-images/raw/main/transformers-logo-light.svg" width="160" height="160" style="max-width: 100%;">
+  </picture>
+  <br/>
+  <br/>
+</p>
+
 # torchic
 
 Simple linear model in Pytorch, with a scikit-learn compatible API.
