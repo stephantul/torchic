@@ -1,14 +1,21 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
 from torch import nn
-from torch.utils.data import DataLoader, TensorDataset
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from torchic.utilities import evaluation, get_device
+from torchic.utilities import (
+    calculate_accuracy,
+    create_dataloader,
+    evaluation,
+    format_history,
+    get_device,
+)
 
 
 class Torchic(nn.Module):
@@ -20,8 +27,7 @@ class Torchic(nn.Module):
         self.optimizer = self.create_optimizer(learning_rate)
         self.criterion = self.create_criterion()
 
-        self.validation_losses: List[float] = []
-        self.validation_accs: List[float] = []
+        self.history: Dict[str, List[float]] = defaultdict(list)
         self.best_params: Optional[Dict[str, torch.Tensor]] = None
 
     def create_optimizer(self, learning_rate: float) -> torch.optim.Optimizer:
@@ -68,25 +74,19 @@ class Torchic(nn.Module):
         logits = self(X_batch)
         loss = self.criterion(logits, y_batch)
 
-        accuracy = (logits.argmax(1) == y_batch).float().mean()
+        accuracy = calculate_accuracy(logits, y_batch)
 
         return loss.item(), accuracy
 
     def _epoch(self, train_dataloader: DataLoader, val_dataloader: DataLoader) -> None:
         pbar = tqdm(total=len(train_dataloader))
 
-        val_loss_s = (
-            f"{self.validation_losses[-1]:.5f}" if self.validation_losses else ""
-        )
-        val_acc_s = f"{self.validation_accs[-1]:.5f}" if self.validation_accs else ""
+        history_string = format_history(self.history)
 
         for X_, y_ in train_dataloader:
             loss = self._fit_batch(X_, y_)
             pbar.set_description(
-                desc=(
-                    f"train loss: {loss:.5f} val loss: {val_loss_s}, val acc:"
-                    f" {val_acc_s}"
-                ),
+                desc=f"train loss: {loss:.5f} {history_string}",
                 refresh=True,
             )
             pbar.update(1)
@@ -99,8 +99,8 @@ class Torchic(nn.Module):
                 avg_loss += batch_loss
                 avg_acc += batch_acc
 
-        self.validation_losses.append(avg_loss / len(val_dataloader))
-        self.validation_accs.append(avg_acc / len(val_dataloader))
+        self.history["val_loss"].append(avg_loss / len(val_dataloader))
+        self.history["val_acc"].append(avg_acc / len(val_dataloader))
 
         pbar.close()
 
@@ -117,25 +117,16 @@ class Torchic(nn.Module):
         if isinstance(y, np.ndarray):
             y = torch.from_numpy(y).long()
 
-        split = int(len(X) * 0.9)
-        X_train, X_val = X[:split], X[split:]
-        y_train, y_val = y[:split], y[split:]
-
-        train_dataset = TensorDataset(X_train, y_train)
-        train_dataloader = DataLoader(
-            train_dataset, batch_size=batch_size, shuffle=True
-        )
-        val_dataset = TensorDataset(X_val, y_val)
-        val_dataloader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+        train_dataloader, val_dataloader = create_dataloader(X, y, batch_size)
 
         wrong_epochs = 0
 
-        for epoch in range(max_epochs):
+        for _ in range(max_epochs):
             self._epoch(train_dataloader, val_dataloader)
 
-            if epoch > 0:
-                lowest_loss = min(self.validation_losses[:-1])
-                current_loss = self.validation_losses[-1]
+            if val_loss := self.history["val_loss"]:
+                lowest_loss = min(val_loss[:-1])
+                current_loss = val_loss[-1]
                 if current_loss < lowest_loss:
                     wrong_epochs = 0
                     self.best_params = self.model.state_dict()
