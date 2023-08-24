@@ -37,10 +37,12 @@ class Torchic(nn.Module):
         return torch.optim.AdamW(self.parameters(), lr=learning_rate)
 
     def create_model(self, n_features: int, n_classes: int) -> nn.Module:
-        linear = nn.Linear(n_features, n_classes)
-        nn.init.kaiming_normal_(linear.weight)
-        lnorm = nn.BatchNorm1d(n_features)
-        model = nn.Sequential(lnorm, linear)
+        n_hidden = int(min(n_features, 90_000) ** 0.5)
+        act = nn.ReLU()
+        lin_in = nn.Linear(n_features, n_hidden)
+        lin_out = nn.Linear(n_hidden, n_classes)
+        lnorm = nn.LayerNorm(n_hidden)
+        model = nn.Sequential(lin_in, act, lnorm, lin_out)
 
         return model
 

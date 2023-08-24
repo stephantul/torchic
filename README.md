@@ -9,13 +9,12 @@
 
 # torchic
 
-Simple linear model in Pytorch, with a scikit-learn compatible API.
+Simple model training in Pytorch, with a scikit-learn compatible API.
 
 It has the following features:
 * Scikit-learn like API (i.e., using `fit` and `predict`)
 * Supports numpy arrays and torch tensors out of the box
 * Automatically converts your tensors between devices
-* Almost nothing is configurable
 
 ## Example
 
